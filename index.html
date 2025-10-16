@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Arcade by Arief 😎</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      color: gold;
+      margin-top: 20px;
+    }
+    .menu {
+      margin: 20px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 12px 24px;
+      margin: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      background: #333;
+      color: white;
+      transition: 0.3s;
+      border-radius: 8px;
+      min-width: 150px;
+    }
+    button:hover {
+      background: gold;
+      color: black;
+      box-shadow: 0 0 10px gold;
+    }
+    
+    /* 1. KANVAS RESPONSIVE */
+    #mainGameCanvas { 
+      background: #000;
+      display: none; 
+      margin-top: 20px;
+      border: 2px solid gold;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      /* Perkecil kanvas agar muat di HP */
+      max-width: 95vw; 
+      height: auto; 
+    }
+    #backBtn {
+      display: none;
+      margin-top: 20px;
+      background: crimson;
+    }
+    #backBtn:hover {
+        background: darkred;
+        color: white;
+        box-shadow: 0 0 10px darkred;
+    }
+    .game-status {
+        display: none; 
+        margin-top: 10px;
+        color: white;
+        width: 95vw;
+        max-width: 600px; 
+        position: relative;
+    }
+    .game-over-overlay {
+        position: absolute; 
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7); 
+        z-index: 10;
+        border-radius: 5px;
+    }
+    #liveScoreDisplay {
+        font-size: 1.2em;
+        margin-bottom: 10px;
+    }
+    
+    /* 2. KONTROL VIRTUAL UNIVERSAL (4 ARAH) */
+    .controls {
+        display: none; 
+        margin-top: 20px;
+    }
+    .controls.active {
+        display: block; 
+    }
+    .control-grid {
+        display: grid;
+        grid-template-areas: ". up ." "left . right" ". down .";
+        width: 180px; 
+        margin: 10px auto; 
+        gap: 5px;
+    }
+    .controls button {
+        padding: 15px 25px;
+        font-size: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        color: gold;
+        border: 2px solid gold;
+        min-width: 50px;
+        line-height: 1;
+    }
+    .control-grid .control-btn-up    { grid-area: up; }
+    .control-grid .control-btn-left  { grid-area: left; }
+    .control-grid .control-btn-right { grid-area: right; }
+    .control-grid .control-btn-down  { grid-area: down; }
+
+    /* Gaya khusus untuk Memory Game (di luar canvas) */
+    #memoryGrid {
+        display: grid;
+        gap: 10px;
+        margin-top: 20px;
+        max-width: 95vw;
+        width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .card {
+        width: 100%;
+        height: 80px;
+        background: #333;
+        border: 2px solid gold;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+        color: transparent;
+        transition: transform 0.3s, background 0.3s;
+        transform-style: preserve-3d;
+    }
+    .card.flipped {
+        background: white;
+        color: #111;
+        transform: rotateY(180deg);
+    }
+    .card.matched {
+        background: lime;
+        color: #111;
+        cursor: default;
+    }
+
+  </style>
+</head>
+<body>
+  <h1>🎮 Mini Arcade</h1>
+  <div class="menu">
+    <button onclick="startGame('snake')">🐍 Ular</button>
+    <button onclick="startGame('breakout')">🧱 Breakout</button>
+    <button onclick="startGame('pong')">🎾 Pong</button>
+    <button onclick="startGame('shooter')">🛸 Tembak UFO</button>
+    <button onclick="startGame('memory')">🧠 Memori</button>
+  </div>
+  <button id="backBtn" onclick="goBack()">⬅ Kembali ke Menu</button>
+
+  <canvas id="mainGameCanvas" width="400" height="400"></canvas>
+  
+  <div id="mobileControls" class="controls">
+      <div class="control-grid">
+          <button class="control-btn-up" data-dir="UP">▲</button>
+          <button class="control-btn-left" data-dir="LEFT">◀</button>
+          <button class="control-btn-right" data-dir="RIGHT">►</button>
+          <button class="control-btn-down" data-dir="DOWN">▼</button>
+      </div>
+  </div>
+
+  <div id="memoryGrid" style="display: none;"></div>
+
+  <div id="gameStatusArea" class="game-status">
+    <p id="liveScoreDisplay"></p>
+    <div id="gameOverOverlay" class="game-over-overlay">
+      <h2 id="gameOverMessage" style="color: gold; margin-bottom: 20px;"></h2>
+      <button onclick="restartGame()">🔁 Restart</button>
+      <button onclick="goBack()" style="background: crimson;">🏠 Keluar Game</button>
+    </div>
+  </div>
+
+
+  <script>
+    // =======================
+    // FUNGSI UMUM DAN PENGATURAN
+    // =======================
+    const menu = document.querySelector('.menu');
+    const backBtn = document.getElementById('backBtn');
+    const mainCanvas = document.getElementById('mainGameCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    
+    // Elemen Status & Kontrol Mobile
+    const gameStatusArea = document.getElementById('gameStatusArea');
+    const liveScoreDisplay = document.getElementById('liveScoreDisplay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const gameOverMessage = document.getElementById('gameOverMessage');
+    const mobileControls = document.getElementById('mobileControls');
+    const memoryGrid = document.getElementById('memoryGrid');
+
+    let gameLoop = null;
+    let activeGame = null;
+
+    // Handler untuk event listener (Didefinisikan secara global)
+    const snakeDirHandler = (e) => snakeDir(e);
+    const breakoutMouseMoveHandler = (e) => breakoutMouseMove(e);
+    const pongMouseMoveHandler = (e) => pongMouseMove(e); 
+    const pongTouchMoveHandler = (e) => pongTouchMove(e);
+    const shooterKeyDownHandler = (e) => shooterKeyDown(e);
+    const shooterKeyUpHandler = (e) => shooterKeyUp(e);
+
+    // Kontrol Mobile Universal: Tambahkan listener ke tombol
+    document.querySelectorAll('#mobileControls button').forEach(button => {
+        button.addEventListener('click', () => {
+            handleMobileInput(button.getAttribute('data-dir'));
+        });
+    });
+
+    // Fungsi pusat untuk tombol virtual
+    function handleMobileInput(dir) {
+        if (activeGame === 'snake') mobileSnakeDir(dir);
+        else if (activeGame === 'breakout') mobileBreakoutMove(dir);
+        else if (activeGame === 'pong') mobilePongMove(dir);
+        else if (activeGame === 'shooter') mobileShooterMove(dir);
+    }
+    
+    function setCanvasSize(width, height) {
+        mainCanvas.width = width;
+        mainCanvas.height = height;
+        
+        // Atur lebar CSS agar tidak terlalu besar di HP
+        mainCanvas.style.width = width > window.innerWidth ? '95vw' : width + 'px';
+        
+        // Atur ukuran gameStatusArea agar cocok dengan canvas
+        gameStatusArea.style.width = mainCanvas.style.width;
+        
+        // Atur posisi overlay Game Over
+        requestAnimationFrame(() => {
+            const canvasRect = mainCanvas.getBoundingClientRect();
+            gameOverOverlay.style.height = canvasRect.height + 'px';
+            gameOverOverlay.style.width = canvasRect.width + 'px';
+        });
+    }
+
+    function startGame(game) {
+      if (activeGame) stopActiveGame(); 
+      hideElements();
+      
+      menu.style.display = 'none';
+      backBtn.style.display = 'inline-block';
+      activeGame = game;
+      
+      if (game === 'memory') {
+        memoryGrid.style.display = 'grid';
+        gameStatusArea.style.display = 'block';
+        startMemory();
+        return;
+      }
+      
+      // Jika game berbasis Kanvas
+      mainCanvas.style.display = 'block';
+      gameStatusArea.style.display = 'block';
+      mobileControls.classList.add('active'); 
+      
+      if (game === 'snake') {
+        setCanvasSize(400, 400);
+        startSnake();
+      } else if (game === 'breakout') {
+        setCanvasSize(480, 320);
+        startBreakout();
+      } else if (game === 'pong') {
+        setCanvasSize(600, 400); 
+        startPong();
+      } else if (game === 'shooter') {
+        setCanvasSize(400, 600);
+        startShooter();
+      }
+    }
+    
+    function restartGame() {
+        if (activeGame) startGame(activeGame); 
+    }
+
+    function goBack() {
+      stopActiveGame();
+      hideElements();
+      menu.style.display = 'flex';
+      backBtn.style.display = 'none';
+      activeGame = null;
+    }
+    
+    function stopActiveGame(isGameOver = false, message = null) {
+        if (activeGame && activeGame !== 'memory') {
+             // Hentikan Loop
+            if (activeGame === 'snake') { clearInterval(gameLoop); } 
+            else if (activeGame === 'breakout' || activeGame === 'pong' || activeGame === 'shooter') { cancelAnimationFrame(gameLoop); } 
+        }
+        
+        // Hapus Event Listeners
+        window.removeEventListener('keydown', snakeDirHandler);
+        document.removeEventListener('mousemove', breakoutMouseMoveHandler);
+        document.removeEventListener('mousemove', pongMouseMoveHandler);
+        mainCanvas.removeEventListener("touchmove", pongTouchMoveHandler);
+        document.removeEventListener('keydown', shooterKeyDownHandler);
+        document.removeEventListener('keyup', shooterKeyUpHandler);
+
+        if (isGameOver) {
+             gameOverOverlay.style.display = 'flex'; 
+             gameOverMessage.textContent = message || "GAME OVER!";
+             liveScoreDisplay.style.display = 'none'; 
+        }
+    }
+
+    function hideElements() {
+      mainCanvas.style.display = 'none';
+      gameStatusArea.style.display = 'none';
+      gameOverOverlay.style.display = 'none';
+      mobileControls.classList.remove('active');
+      memoryGrid.style.display = 'none';
+    }
+
+
+    // =======================
+    // KONTROL MOBILE HANDLERS
+    // =======================
+
+    // KONTROL UNIVERSAL
+    const PADDLE_TOUCH_SPEED = 20; // Kecepatan per klik/sentuhan
+    
+    // 🐍 SNAKE
+    function mobileSnakeDir(newDirection) {
+        if (newDirection === "LEFT" && direction !== "RIGHT") direction = "LEFT";
+        else if (newDirection === "UP" && direction !== "DOWN") direction = "UP";
+        else if (newDirection === "RIGHT" && direction !== "LEFT") direction = "RIGHT";
+        else if (newDirection === "DOWN" && direction !== "UP") direction = "DOWN";
+    }
+    
+    // 🧱 BREAKOUT (Kontrol gerak Horizontal)
+    function mobileBreakoutMove(moveDirection) {
+        let speed = 25;
+        if (moveDirection === 'LEFT') paddleX -= speed;
+        else if (moveDirection === 'RIGHT') paddleX += speed;
+        
+        if (paddleX < 0) paddleX = 0;
+        if (paddleX > mainCanvas.width - paddleWidth) paddleX = mainCanvas.width - paddleWidth;
+    }
+
+    // 🎾 PONG (Kontrol gerak Vertikal)
+    function mobilePongMove(moveDirection) {
+        if (moveDirection === 'UP') pongPaddle1Y -= PADDLE_TOUCH_SPEED;
+        else if (moveDirection === 'DOWN') pongPaddle1Y += PADDLE_TOUCH_SPEED;
+        
+        if (pongPaddle1Y < 0) pongPaddle1Y = 0;
+        if (pongPaddle1Y > mainCanvas.height - pongPaddleHeight) pongPaddle1Y = mainCanvas.height - pongPaddleHeight;
+    }
+    
+    // 🛸 SHOOTER (Kontrol gerak Horizontal dan Tembak)
+    function mobileShooterMove(moveDirection) {
+        if (moveDirection === 'LEFT') ship.x -= 15;
+        else if (moveDirection === 'RIGHT') ship.x += 15;
+        else if (moveDirection === 'UP') shooterFire(); // Gunakan ATAS untuk menembak
+        
+        // Batasi gerakan kapal
+        if (ship.x < 0) ship.x = 0;
+        if (ship.x > mainCanvas.width - ship.w) ship.x = mainCanvas.width - ship.w;
+    }
+
+
+    // =======================
+    // GAME 1 : SNAKE 🐍 (Code dipertahankan, hanya variabel global yang diupdate)
+    // =======================
+    let box, snake, direction, food, snakeScore;
+    function startSnake() { /* ... */ }
+    function placeFood() { /* ... */ }
+    function snakeDir(e) { /* ... */ }
+    function snakeDraw() { /* ... */
+      // ... (Kode untuk SnakeDraw tetap sama)
+      if (direction === null) {
+          liveScoreDisplay.textContent = `🐍 Score: ${snakeScore} (Tekan Panah/Tombol untuk Mulai!)`;
+          return; 
+      }
+      // ... (lanjutan kode snake)
+    }
+    function snakeCollision(head, array) { /* ... */ }
+
+
+    // =======================
+    // GAME 2 : BREAKOUT 🧱 (Code dipertahankan, hanya variabel global yang diupdate)
+    // =======================
+    let ballRadius, x, y, dx, dy, paddleHeight, paddleWidth, paddleX;
+    let brickRowCount, brickColumnCount, brickWidth, brickHeight, brickPadding, brickOffsetTop, brickOffsetLeft;
+    let bricks = [], breakoutScore;
+    function drawBreakoutScore() { /* ... */ }
+    function initBricks() { /* ... */ }
+
+    function startBreakout() {
+      // ... (setup state) ...
+      liveScoreDisplay.style.display = 'none'; 
+      document.addEventListener("mousemove", breakoutMouseMoveHandler);
+      // Tambahkan event touchmove agar swipe berfungsi juga
+      mainCanvas.addEventListener("touchmove", breakoutMouseMoveHandler, { passive: true });
+      gameLoop = requestAnimationFrame(drawBreakout); 
+    }
+
+    function breakoutMouseMove(e) {
+      let relativeX;
+      if (e.touches && e.touches.length > 0) { // Jika sentuhan
+          relativeX = e.touches[0].clientX - mainCanvas.getBoundingClientRect().left;
+      } else { // Jika mouse
+          relativeX = e.clientX - mainCanvas.getBoundingClientRect().left;
+      }
+      // ... (Logika pergerakan paddle)
+      if (relativeX > 0 && relativeX < mainCanvas.width) {
+        paddleX = relativeX - paddleWidth / 2;
+        if (paddleX < 0) paddleX = 0;
+        if (paddleX > mainCanvas.width - paddleWidth) paddleX = mainCanvas.width - paddleWidth;
+      }
+    }
+
+    function collisionDetection() { /* ... */ }
+    function drawBreakout() { /* ... */ }
+
+
+    // =======================
+    // GAME 3 : PONG 🎾 (Code dipertahankan, hanya variabel global yang diupdate)
+    // =======================
+    let pongPaddle1Y, pongPaddle2Y, pongBallX, pongBallY, pongBallDX, pongBallDY;
+    let pongPaddleHeight = 70, pongPaddleWidth = 10, pongScore1 = 0, pongScore2 = 0;
+    let pongAIPaddleSpeed = 3;
+    function startPong() { 
+      // ... (setup state) ...
+      document.addEventListener("mousemove", pongMouseMoveHandler);
+      mainCanvas.addEventListener("touchmove", pongTouchMoveHandler, { passive: false });
+      gameLoop = requestAnimationFrame(drawPong);
+    }
+    function resetBall(direction = 1) { /* ... */ }
+    function pongMouseMove(e) { /* ... */ }
+    function pongTouchMove(e) { /* ... */
+        e.preventDefault(); 
+        if (e.touches.length > 0) {
+            let relativeY = e.touches[0].clientY - mainCanvas.getBoundingClientRect().top;
+            if (relativeY > pongPaddleHeight / 2 && relativeY < mainCanvas.height - pongPaddleHeight / 2) {
+                pongPaddle1Y = relativeY - pongPaddleHeight / 2;
+            }
+        }
+    }
+    function moveAIPaddle() { /* ... */ }
+    function drawPong() { /* ... */ }
+
+    // =======================
+    // GAME 4 : SHOOTER 🛸 (Game Baru)
+    // =======================
+    let ship = { x: 180, y: 550, w: 40, h: 20, speed: 5 };
+    let bullets = [];
+    let enemies = [];
+    let rightPressed = false;
+    let leftPressed = false;
+    let shooterScore = 0;
+    let enemySpawnTimer = 0;
+    const ENEMY_SPAWN_RATE = 100;
+    let isFiring = false; // Untuk kontrol penembakan otomatis saat tombol di HP ditekan
+
+    function drawShooterScore() {
+        ctx.fillStyle = "white";
+        ctx.font = "16px Arial";
+        ctx.fillText("Score: " + shooterScore, 10, 20);
+    }
+
+    function spawnEnemy() {
+        enemies.push({ 
+            x: Math.random() * (mainCanvas.width - 30), 
+            y: -20,
+            w: 30, 
+            h: 20, 
+            speed: 1 + Math.random() * 1.5
+        });
+    }
+    
+    function shooterFire() {
+        if (bullets.length < 5) {
+            bullets.push({ 
+                x: ship.x + ship.w / 2 - 2, 
+                y: ship.y, 
+                w: 4, 
+                h: 10, 
+                speed: 7 
+            });
+        }
+    }
+
+    function startShooter() {
+      bullets = [];
+      enemies = [];
+      shooterScore = 0;
+      ship.x = mainCanvas.width / 2 - ship.w / 2;
+      rightPressed = false;
+      leftPressed = false;
+      enemySpawnTimer = 0;
+      
+      document.addEventListener("keydown", shooterKeyDownHandler);
+      document.addEventListener("keyup", shooterKeyUpHandler);
+      
+      for (let i = 0; i < 5; i++) {
+        spawnEnemy(); 
+      }
+      gameLoop = requestAnimationFrame(drawShooter);
+    }
+
+    function shooterKeyDown(e) {
+      if (e.key === "ArrowRight") rightPressed = true;
+      else if (e.key === "ArrowLeft") leftPressed = true;
+      else if (e.key === " ") {
+        e.preventDefault();
+        shooterFire();
+      }
+    }
+
+    function shooterKeyUp(e) {
+      if (e.key === "ArrowRight") rightPressed = false;
+      else if (e.key === "ArrowLeft") leftPressed = false;
+    }
+
+    function drawShooter() {
+      ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+      
+      // Gerakan Keyboard
+      if (rightPressed && ship.x < mainCanvas.width - ship.w) ship.x += ship.speed;
+      if (leftPressed && ship.x > 0) ship.x -= ship.speed;
+
+      // Kapal
+      ctx.fillStyle = "lime";
+      ctx.fillRect(ship.x, ship.y, ship.w, ship.h);
+      
+      // Peluru
+      ctx.fillStyle = "yellow";
+      for (let i = bullets.length - 1; i >= 0; i--) {
+          let b = bullets[i];
+          b.y -= b.speed;
+          ctx.fillRect(b.x, b.y, b.w, b.h);
+          if (b.y < 0) bullets.splice(i, 1);
+      }
+      
+      // Musuh & Kolisi
+      ctx.fillStyle = "red";
+      for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          let en = enemies[ei];
+          en.y += en.speed;
+          ctx.fillRect(en.x, en.y, en.w, en.h);
+          
+          for (let bi = bullets.length - 1; bi >= 0; bi--) {
+              let b = bullets[bi];
+              if (b.x < en.x + en.w && b.x + b.w > en.x && b.y < en.y + en.h && b.y + b.h > en.y) {
+                  enemies.splice(ei, 1);
+                  bullets.splice(bi, 1);
+                  shooterScore++;
+                  break; 
+              }
+          }
+          
+          if (en.y > mainCanvas.height) {
+              stopActiveGame(true, `GAME OVER! Musuh Lolos. Skor Akhir: ${shooterScore}`);
+              return;
+          }
+          
+          if (ship.x < en.x + en.w && ship.x + ship.w > en.x && ship.y < en.y + en.h && ship.y + ship.h > en.y) {
+             stopActiveGame(true, `GAME OVER! Tabrakan. Skor Akhir: ${shooterScore}`);
+              return;
+          }
+      }
+      
+      enemySpawnTimer++;
+      if (enemySpawnTimer >= ENEMY_SPAWN_RATE) {
+          spawnEnemy();
+          enemySpawnTimer = 0;
+      }
+      
+      drawShooterScore(); 
+
+      gameLoop = requestAnimationFrame(drawShooter);
+    }
+
+
+    // =======================
+    // GAME 5 : MEMORY 🧠 (Game Baru, DOM Based)
+    // =======================
+    let cards = [];
+    let flippedCards = [];
+    let matchesFound = 0;
+    let memoryTries = 0;
+
+    const ICONS = ['🍎', '🍌', '🍇', '🍉', '🍋', '🥝', '🍓', '🍍'];
+
+    function startMemory() {
+        memoryGrid.innerHTML = '';
+        memoryGrid.style.gridTemplateColumns = `repeat(4, 1fr)`;
+        liveScoreDisplay.style.display = 'block';
+        
+        matchesFound = 0;
+        memoryTries = 0;
+        flippedCards = [];
+        
+        // Buat pasangan kartu
+        let gameIcons = [...ICONS, ...ICONS];
+        
+        // Acak kartu
+        gameIcons.sort(() => Math.random() - 0.5);
+        
+        // Buat elemen kartu
+        cards = gameIcons.map((icon, index) => {
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.textContent = icon;
+            card.dataset.icon = icon;
+            card.dataset.index = index;
+            card.addEventListener('click', () => flipCard(card));
+            memoryGrid.appendChild(card);
+            return card;
+        });
+        
+        updateMemoryScore();
+    }
+    
+    function updateMemoryScore() {
+        liveScoreDisplay.textContent = `🧠 Matches: ${matchesFound}/${ICONS.length} | Tries: ${memoryTries}`;
+    }
+
+    function flipCard(card) {
+        if (flippedCards.length >= 2 || card.classList.contains('flipped') || card.classList.contains('matched')) {
+            return;
+        }
+        
+        card.classList.add('flipped');
+        flippedCards.push(card);
+        
+        if (flippedCards.length === 2) {
+            memoryTries++;
+            const [card1, card2] = flippedCards;
+            
+            if (card1.dataset.icon === card2.dataset.icon) {
+                // Cocok
+                matchesFound++;
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                flippedCards = [];
+                
+                if (matchesFound === ICONS.length) {
+                    stopActiveGame(true, `SELAMAT! Kamu menang dalam ${memoryTries} langkah!`);
+                }
+            } else {
+                // Tidak Cocok, tunggu sebentar lalu balikkan
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    flippedCards = [];
+                }, 1000);
+            }
+            updateMemoryScore();
+        }
+    }
+
+    // Kode Game Lainnya dipertahankan...
+
+  </script>
+</body>
+</html>
